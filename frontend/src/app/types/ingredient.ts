@@ -47,6 +47,8 @@ export interface ExternalLink {
 export interface LowestTopItem {
   ingredientId: number;
   name: string;
+  /** 재료 기본 단위 (g · ml · 개) — 재고 배치 수량 단위. 구버전 백엔드는 없음 */
+  unit?: string | null;
   weekAvg: number | null;
   monthAvg: number | null;
   todayPrice: number | null;

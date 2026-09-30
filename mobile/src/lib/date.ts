@@ -36,3 +36,11 @@ export function won(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
   return `${Math.round(Number(n)).toLocaleString("ko-KR")}원`;
 }
+
+/** 5000 g → "5 kg", 1500 ml → "1.5 L" 보조 표기 */
+export function bigUnitHint(qty: number, unit: string | null | undefined): string | null {
+  if (qty < 1000) return null;
+  if (unit === "g") return `${formatQuantity(qty / 1000)} kg`;
+  if (unit === "ml") return `${formatQuantity(qty / 1000)} L`;
+  return null;
+}

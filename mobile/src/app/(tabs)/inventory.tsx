@@ -6,7 +6,7 @@ import { useLowestTop } from "../../hooks/useLowestTop";
 import { useBatches, useCreateBatch } from "../../hooks/useInventoryBatches";
 import type { LowestTopItem } from "../../types/ingredient";
 import type { InventoryBatch } from "../../types/inventory";
-import { formatQuantity, futureISO, isWithinDays, todayISO } from "../../lib/date";
+import { bigUnitHint, formatQuantity, futureISO, isWithinDays, todayISO } from "../../lib/date";
 import { C } from "../../components/theme";
 import { DateTimeField } from "../../components/pickers";
 import {
@@ -83,7 +83,10 @@ function StockCard({ item, onPress }: { item: LowestTopItem; onPress: () => void
       ) : (
         <Text style={{ marginTop: 8, fontSize: 26, fontWeight: "800", color: total > 0 ? C.primary : C.textMute }}>
           {formatQuantity(total)}
-          <Text style={{ fontSize: 14, fontWeight: "500", color: C.textMute }}> kg</Text>
+          <Text style={{ fontSize: 14, fontWeight: "500", color: C.textMute }}> {item.unit ?? ""}</Text>
+          {bigUnitHint(total, item.unit) ? (
+            <Text style={{ fontSize: 12, fontWeight: "400", color: C.textMute }}>  ({bigUnitHint(total, item.unit)})</Text>
+          ) : null}
         </Text>
       )}
       <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: C.border }}>
@@ -106,18 +109,20 @@ function BatchDetailSheet({ item, onClose }: { item: LowestTopItem; onClose: () 
       ) : batches.length === 0 ? (
         <Text style={{ textAlign: "center", color: C.textSub, paddingVertical: 20 }}>등록된 배치가 없습니다</Text>
       ) : (
-        batches.map((b, i) => <BatchRow key={b.batchId} batch={b} index={i} />)
+        batches.map((b, i) => <BatchRow key={b.batchId} batch={b} index={i} unit={item.unit ?? ""} />)
       )}
       <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 12, borderTopWidth: 1, borderColor: C.border }}>
         <Text style={{ color: C.textSub }}>합계 ({batches.length}건)</Text>
-        <Text style={{ fontWeight: "800", color: C.primary, fontSize: 16 }}>{formatQuantity(total)} kg</Text>
+        <Text style={{ fontWeight: "800", color: C.primary, fontSize: 16 }}>
+          {formatQuantity(total)} {item.unit ?? ""}
+        </Text>
       </View>
       <GradientButton title="닫기" variant="outline" onPress={onClose} />
     </Sheet>
   );
 }
 
-function BatchRow({ batch, index }: { batch: InventoryBatch; index: number }) {
+function BatchRow({ batch, index, unit }: { batch: InventoryBatch; index: number; unit: string }) {
   const soon = isWithinDays(batch.expiresAt, 7);
   return (
     <View
@@ -136,7 +141,9 @@ function BatchRow({ batch, index }: { batch: InventoryBatch; index: number }) {
         <Text style={{ fontSize: 12, fontWeight: "700", color: C.primaryDark }}>{index + 1}</Text>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontWeight: "700", color: C.text }}>{formatQuantity(Number(batch.quantity))} kg</Text>
+        <Text style={{ fontWeight: "700", color: C.text }}>
+          {formatQuantity(Number(batch.quantity))} {unit}
+        </Text>
         <Text style={{ fontSize: 12, color: soon ? "#B45309" : C.textMute }}>
           유통기한 {batch.expiresAt}
           {soon ? " ⚠ 임박" : ""}
@@ -173,9 +180,12 @@ function AddBatchSheet({
     setErrorMsg(null);
   };
 
+  const currentId = selectedId ?? ingredients[0]?.ingredientId ?? null;
+  const currentUnit = ingredients.find((i) => i.ingredientId === currentId)?.unit ?? "";
+
   const submit = async () => {
     setErrorMsg(null);
-    const id = selectedId ?? ingredients[0]?.ingredientId;
+    const id = currentId;
     if (!id) return setErrorMsg("재료를 선택해주세요.");
     const qty = Number.parseFloat(quantity);
     if (!qty || qty <= 0) return setErrorMsg("수량을 0보다 큰 값으로 입력해주세요.");
@@ -200,7 +210,7 @@ function AddBatchSheet({
       <Field label="재료 *">
         <SelectField
           title="재료 선택"
-          value={selectedId ?? ingredients[0]?.ingredientId ?? null}
+          value={currentId}
           options={ingredients.map((i) => ({ value: i.ingredientId, label: i.name }))}
           onChange={setSelectedId}
         />
@@ -208,7 +218,7 @@ function AddBatchSheet({
       <View style={{ flexDirection: "row", gap: 10 }}>
         <View style={{ flex: 1 }}>
           <Field label="수량 *">
-            <Input value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder="10" suffix="kg" />
+            <Input value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder="1000" suffix={currentUnit} />
           </Field>
         </View>
         <View style={{ flex: 1 }}>

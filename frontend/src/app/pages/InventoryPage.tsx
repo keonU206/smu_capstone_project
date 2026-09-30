@@ -128,7 +128,12 @@ function StockCard({
             >
               {formatQuantity(totalQuantity)}
             </span>
-            <span className="text-sm text-[#94a3b8]">kg</span>
+            <span className="text-sm text-[#94a3b8]">{unitOf(item)}</span>
+            {bigUnitHint(totalQuantity, item.unit) && (
+              <span className="text-xs text-[#94a3b8] ml-1">
+                ({bigUnitHint(totalQuantity, item.unit)})
+              </span>
+            )}
           </div>
 
           <div className="text-xs text-[#64748b] pt-2 border-t border-[#e2e8f0]">
@@ -197,7 +202,7 @@ function BatchDetailModal({
         ) : (
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {batches.map((b, i) => (
-              <BatchRow key={b.batchId} batch={b} index={i} />
+              <BatchRow key={b.batchId} batch={b} index={i} unit={unitOf(item)} />
             ))}
           </div>
         )}
@@ -207,7 +212,7 @@ function BatchDetailModal({
             합계 ({batches.length}건)
           </span>
           <span className="text-lg font-semibold text-[#0EA5E9]">
-            {formatQuantity(totalQuantity)} kg
+            {formatQuantity(totalQuantity)} {unitOf(item)}
           </span>
         </div>
 
@@ -224,9 +229,11 @@ function BatchDetailModal({
 function BatchRow({
   batch,
   index,
+  unit,
 }: {
   batch: InventoryBatch;
   index: number;
+  unit: string;
 }) {
   const isExpiringSoon = isWithinDays(batch.expiresAt, 7);
 
@@ -244,7 +251,7 @@ function BatchRow({
         </span>
         <div>
           <div className="text-sm font-semibold text-[#1e293b]">
-            {formatQuantity(Number(batch.quantity))} kg
+            {formatQuantity(Number(batch.quantity))} {unit}
           </div>
           <div
             className={`text-xs ${
@@ -378,7 +385,9 @@ function AddBatchModal({
                   className={inputClass}
                   required
                 />
-                <span className="text-[#64748b] font-medium">kg</span>
+                <span className="text-[#64748b] font-medium">
+                  {unitOf(ingredients.find((i) => i.ingredientId === selectedId))}
+                </span>
               </div>
             </div>
             <div>
@@ -453,6 +462,19 @@ function AddBatchModal({
 }
 
 // ────────── helpers ──────────
+
+/** 재료 기본 단위 (g · ml · 개). 배치 수량은 이 단위로 저장된다. */
+function unitOf(item: LowestTopItem | undefined): string {
+  return item?.unit || "";
+}
+
+/** 5000 g → "5 kg", 1500 ml → "1.5 L" 보조 표기 */
+function bigUnitHint(qty: number, unit: string | null | undefined): string | null {
+  if (qty < 1000) return null;
+  if (unit === "g") return `${formatQuantity(qty / 1000)} kg`;
+  if (unit === "ml") return `${formatQuantity(qty / 1000)} L`;
+  return null;
+}
 
 function formatQuantity(value: number): string {
   if (Number.isInteger(value)) return value.toString();

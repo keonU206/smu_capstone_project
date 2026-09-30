@@ -247,9 +247,9 @@ export function Input({ suffix, style, ...props }: TextInputProps & { suffix?: s
           setFocused(false);
           props.onBlur?.(e);
         }}
-        style={[{ flex: 1, fontSize: 16, color: C.text, paddingVertical: 12 }, style]}
+        style={[{ flex: 1, minWidth: 0, width: "100%", fontSize: 16, color: C.text, paddingVertical: 12 }, style]}
       />
-      {suffix ? <Text style={{ color: C.textSub, marginLeft: 8 }}>{suffix}</Text> : null}
+      {suffix ? <Text style={{ color: C.textSub, marginLeft: 8, flexShrink: 0 }}>{suffix}</Text> : null}
     </View>
   );
 }
