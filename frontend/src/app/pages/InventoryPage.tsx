@@ -171,15 +171,15 @@ function BatchDetailModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-6 py-8 overflow-y-auto"
+      className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:px-6 sm:py-8 overflow-y-auto"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl w-full max-w-md p-6"
+        className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 max-h-[90dvh] overflow-y-auto"
       >
         <h2 className="text-xl font-semibold text-[#1e293b] mb-1">
           {item.name}
@@ -321,15 +321,15 @@ function AddBatchModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-6 py-8 overflow-y-auto"
+      className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:px-6 sm:py-8 overflow-y-auto"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl w-full max-w-md p-6"
+        className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 max-h-[90dvh] overflow-y-auto"
       >
         <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-gradient-to-br from-[#0EA5E9] to-[#38BDF8] flex items-center justify-center text-2xl">
           📦

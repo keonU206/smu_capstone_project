@@ -330,16 +330,16 @@ function LowStockTab({
             <h3 className="font-semibold text-[#1e293b] mb-2">재고 등급 안내</h3>
             <ul className="space-y-1.5 text-sm text-[#64748b]">
               <li>
-                • <b>DANGER</b> (빨강): stockRatio ≤ 30% — 발주 알림 대상
+                • <b>긴급</b> (빨강): 재고율 30% 이하 — 발주 알림 대상
               </li>
               <li>
-                • <b>NORMAL</b> (노랑): 30% &lt; ratio ≤ 60% — 주의 필요
+                • <b>주의</b> (노랑): 재고율 30~60% — 주의 필요
               </li>
               <li>
-                • <b>SUFFICIENT</b> (초록): &gt; 60% — 여유 있음
+                • <b>여유</b> (초록): 재고율 60% 초과
               </li>
               <li>
-                • stockRatio = currentStock ÷ (nextOrderDayDistance × dailyAvgSales)
+                • 재고율 = 현재 재고 ÷ (다음 발주일까지 남은 일수 × 일평균 소모량)
               </li>
             </ul>
           </div>
@@ -651,11 +651,11 @@ function gradeBadge(grade: StockGrade): {
 } {
   switch (grade) {
     case "DANGER":
-      return { label: "DANGER", tone: "danger" };
+      return { label: "긴급", tone: "danger" };
     case "NORMAL":
-      return { label: "NORMAL", tone: "warning" };
+      return { label: "주의", tone: "warning" };
     case "SUFFICIENT":
-      return { label: "SUFFICIENT", tone: "success" };
+      return { label: "여유", tone: "success" };
   }
 }
 

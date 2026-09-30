@@ -61,25 +61,70 @@ function MainShell({ children }: { children: ReactNode }) {
       <div className="lg:grid lg:grid-cols-[260px_1fr] lg:min-h-screen">
         <Sidebar />
         <main className="px-0 lg:px-0">
-          <div className="mx-auto w-full max-w-sm md:max-w-2xl lg:max-w-5xl px-6 py-6 lg:py-10">
+          <div className="mx-auto w-full max-w-md md:max-w-2xl lg:max-w-5xl px-5 sm:px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(6rem+env(safe-area-inset-bottom))] lg:py-10">
             {children}
           </div>
         </main>
       </div>
+      <MobileTabBar />
     </div>
+  );
+}
+
+const NAV_ITEMS = [
+  { to: "/main", label: "메인", icon: HomeIcon },
+  { to: "/lowest-price", label: "최저가", icon: TagIcon },
+  { to: "/inventory", label: "재고", icon: BoxIcon },
+  { to: "/order", label: "발주", icon: ClipboardIcon },
+  { to: "/settings", label: "설정", icon: CogIcon },
+];
+
+/** 모바일·태블릿 전용 하단 탭바 (lg 이상에서는 Sidebar 사용) */
+function MobileTabBar() {
+  return (
+    <nav
+      aria-label="주요 메뉴"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-[#e2e8f0] pb-[env(safe-area-inset-bottom)]"
+    >
+      <ul className="mx-auto max-w-2xl grid grid-cols-5">
+        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          <li key={to}>
+            <NavLink
+              to={to}
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center gap-1 h-16 text-[11px] font-medium transition-colors ${
+                  isActive ? "text-[#0EA5E9]" : "text-[#94a3b8] active:text-[#0EA5E9]"
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={`flex items-center justify-center w-10 h-7 rounded-full transition-colors ${
+                      isActive ? "bg-[#E0F2FE]" : ""
+                    }`}
+                  >
+                    <Icon />
+                  </span>
+                  {label}
+                </>
+              )}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 
 function Sidebar() {
   const navigate = useNavigate();
 
-  const items = [
-    { to: "/main", label: "메인", icon: HomeIcon },
-    { to: "/lowest-price", label: "최저가", icon: TagIcon },
-    { to: "/inventory", label: "재고 관리", icon: BoxIcon },
-    { to: "/order", label: "발주 관리", icon: ClipboardIcon },
-    { to: "/settings", label: "설정", icon: CogIcon },
-  ];
+  const items = NAV_ITEMS.map((item) =>
+    item.to === "/inventory" ? { ...item, label: "재고 관리" }
+    : item.to === "/order" ? { ...item, label: "발주 관리" }
+    : item,
+  );
 
   const handleLogout = () => {
     if (confirm("로그아웃 하시겠습니까?")) {
