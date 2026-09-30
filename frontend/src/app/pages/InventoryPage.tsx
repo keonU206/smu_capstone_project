@@ -128,7 +128,12 @@ function StockCard({
             >
               {formatQuantity(totalQuantity)}
             </span>
-            <span className="text-sm text-[#94a3b8]">kg</span>
+            <span className="text-sm text-[#94a3b8]">{unitOf(item)}</span>
+            {bigUnitHint(totalQuantity, item.unit) && (
+              <span className="text-xs text-[#94a3b8] ml-1">
+                ({bigUnitHint(totalQuantity, item.unit)})
+              </span>
+            )}
           </div>
 
           <div className="text-xs text-[#64748b] pt-2 border-t border-[#e2e8f0]">
@@ -171,15 +176,15 @@ function BatchDetailModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-6 py-8 overflow-y-auto"
+      className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:px-6 sm:py-8 overflow-y-auto"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl w-full max-w-md p-6"
+        className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 max-h-[90dvh] overflow-y-auto"
       >
         <h2 className="text-xl font-semibold text-[#1e293b] mb-1">
           {item.name}
@@ -197,7 +202,7 @@ function BatchDetailModal({
         ) : (
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {batches.map((b, i) => (
-              <BatchRow key={b.batchId} batch={b} index={i} />
+              <BatchRow key={b.batchId} batch={b} index={i} unit={unitOf(item)} />
             ))}
           </div>
         )}
@@ -207,7 +212,7 @@ function BatchDetailModal({
             합계 ({batches.length}건)
           </span>
           <span className="text-lg font-semibold text-[#0EA5E9]">
-            {formatQuantity(totalQuantity)} kg
+            {formatQuantity(totalQuantity)} {unitOf(item)}
           </span>
         </div>
 
@@ -224,9 +229,11 @@ function BatchDetailModal({
 function BatchRow({
   batch,
   index,
+  unit,
 }: {
   batch: InventoryBatch;
   index: number;
+  unit: string;
 }) {
   const isExpiringSoon = isWithinDays(batch.expiresAt, 7);
 
@@ -244,7 +251,7 @@ function BatchRow({
         </span>
         <div>
           <div className="text-sm font-semibold text-[#1e293b]">
-            {formatQuantity(Number(batch.quantity))} kg
+            {formatQuantity(Number(batch.quantity))} {unit}
           </div>
           <div
             className={`text-xs ${
@@ -321,15 +328,15 @@ function AddBatchModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-6 py-8 overflow-y-auto"
+      className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:px-6 sm:py-8 overflow-y-auto"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl w-full max-w-md p-6"
+        className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 max-h-[90dvh] overflow-y-auto"
       >
         <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-gradient-to-br from-[#0EA5E9] to-[#38BDF8] flex items-center justify-center text-2xl">
           📦
@@ -378,7 +385,9 @@ function AddBatchModal({
                   className={inputClass}
                   required
                 />
-                <span className="text-[#64748b] font-medium">kg</span>
+                <span className="text-[#64748b] font-medium">
+                  {unitOf(ingredients.find((i) => i.ingredientId === selectedId))}
+                </span>
               </div>
             </div>
             <div>
@@ -453,6 +462,19 @@ function AddBatchModal({
 }
 
 // ────────── helpers ──────────
+
+/** 재료 기본 단위 (g · ml · 개). 배치 수량은 이 단위로 저장된다. */
+function unitOf(item: LowestTopItem | undefined): string {
+  return item?.unit || "";
+}
+
+/** 5000 g → "5 kg", 1500 ml → "1.5 L" 보조 표기 */
+function bigUnitHint(qty: number, unit: string | null | undefined): string | null {
+  if (qty < 1000) return null;
+  if (unit === "g") return `${formatQuantity(qty / 1000)} kg`;
+  if (unit === "ml") return `${formatQuantity(qty / 1000)} L`;
+  return null;
+}
 
 function formatQuantity(value: number): string {
   if (Number.isInteger(value)) return value.toString();

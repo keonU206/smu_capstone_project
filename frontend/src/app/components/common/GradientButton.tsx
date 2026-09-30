@@ -26,7 +26,7 @@ export function GradientButton({
   return (
     <button
       {...rest}
-      className={`${base} ${styles} ${fullWidth ? "w-full" : ""} ${className}`}
+      className={`${base} ${styles} ${fullWidth ? "w-full" : "px-5 whitespace-nowrap"} ${className}`}
     >
       {children}
     </button>
