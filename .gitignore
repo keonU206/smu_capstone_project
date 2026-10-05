@@ -41,3 +41,8 @@ backend/**/.factorypath
 
 # ─────────── 시연용 임시 파일 ───────────
 backend/temp_fix_chef02.sql
+
+# 연동 점검 결과물
+scripts/smoke-result.txt
+scripts/run-log.txt
+scripts/backend.log

@@ -3,6 +3,8 @@
 소상공인을 위한 식재료 발주·재고 관리 서비스.
 KAMIS 공식 시세 + 외부 가격 비교 + 재고 입출고 + 매수 신호 자동 알림을 한 화면에서 제공.
 
+> 🧪 **백엔드·웹·앱 연동 테스트는 [`TESTING.md`](TESTING.md)부터 읽으세요.** (원본 백엔드 레포와의 차이, 구동 순서, 자동 점검 스크립트, AI 도구용 지침 포함)
+
 ---
 
 ## 📂 프로젝트 구조
@@ -15,7 +17,9 @@ naengjang-goat/
 ├── backend/       Spring Boot 3 + Java 21 + MySQL 8 + Redis 7
 │                  - JWT 인증, KAMIS API 연동, Spring Batch
 │                  - 동료(sim, park) 작성 코드 + 시연용 패치 일부
-└── plan_kim_*.md  단계별 구현 계획 문서
+├── mobile/        React Native (Expo SDK 57) Android 앱 — mobile/README.md
+├── scripts/       API 연동 자동 점검 (smoke-test)
+└── TESTING.md     통합 테스트 가이드
 ```
 
 ---

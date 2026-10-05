@@ -1,0 +1,194 @@
+diff --git a/src/main/java/com/naengjang_goat/inventory_system/batch/processor/KamisPriceProcessor.java b/src/main/java/com/naengjang_goat/inventory_system/batch/processor/KamisPriceProcessor.java
+index 6d9505f..6fe2cbc 100644
+--- a/src/main/java/com/naengjang_goat/inventory_system/batch/processor/KamisPriceProcessor.java
++++ b/src/main/java/com/naengjang_goat/inventory_system/batch/processor/KamisPriceProcessor.java
+@@ -58,7 +58,8 @@ public class KamisPriceProcessor implements ItemProcessor<KamisPriceDto, MarketP
+         mp.setRetailPrice(dto.getDpr1());
+         mp.setWholesalePrice(dto.getDpr4());
+         mp.setUnit(dto.getUnit());
+-        mp.setReportedDate(LocalDate.now().minusDays(1));  // KamisApiClient 의 p_regday 와 일치
++        // [시연 임시] KamisApiClient 의 임시 고정 날짜와 동기화. 시연 후 원복: LocalDate.now().minusDays(1)
++        mp.setReportedDate(LocalDate.of(2025, 6, 4));
+         return mp;
+     }
+ }
+diff --git a/src/main/java/com/naengjang_goat/inventory_system/batch/service/KamisApiClient.java b/src/main/java/com/naengjang_goat/inventory_system/batch/service/KamisApiClient.java
+index b4ddad6..9464c9c 100644
+--- a/src/main/java/com/naengjang_goat/inventory_system/batch/service/KamisApiClient.java
++++ b/src/main/java/com/naengjang_goat/inventory_system/batch/service/KamisApiClient.java
+@@ -46,7 +46,8 @@ public class KamisApiClient {
+     private static final String[] CATEGORY_CODES =
+             { "100", "200", "300", "400", "500", "600" };
+ 
+-    private static final DateTimeFormatter KAMIS_DATE_FMT = DateTimeFormatter.ofPattern("yyyy/MM/dd");
++    // [시연] KAMIS는 dash 형식만 200 응답. slash 형식은 빈 응답(HTTP=000).
++    private static final DateTimeFormatter KAMIS_DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+     /** 주말 건너뛴 가장 최근 평일. 공휴일 판단은 API 응답에 위임. */
+     private static LocalDate prevWeekday(LocalDate from) {
+         LocalDate d = from;
+@@ -66,8 +67,9 @@ public class KamisApiClient {
+                     "&p_cert_key=" + URLEncoder.encode(apiKey, StandardCharsets.UTF_8) +
+                     "&p_cert_id=" + URLEncoder.encode(apiId, StandardCharsets.UTF_8) +
+                     "&p_returntype=" + URLEncoder.encode(returnType, StandardCharsets.UTF_8) +
+-                    "&p_product_cls_code=01" +
+-                    "&p_category_code=" + categoryCode +
++                    "&p_product_cls_code=02" +  // [시연] 01(소매) 직접 호출 시 빈 응답(exit52). 02(도매)로 변경
++                    "&p_item_category_code=" + categoryCode +  // [시연] KAMIS 공식 파라미터명. p_category_code 는 무시됨
++                    "&p_convert_kg_yn=Y" +  // [시연] kg 환산 정규화
+                     "&p_regday=" + regday;
+ 
+             return restTemplate.getForObject(url, String.class);
+@@ -113,7 +115,9 @@ public class KamisApiClient {
+      *   → 연휴 직후에도 가장 최근 데이터를 자동으로 수집
+      */
+     public List<KamisPriceDto> fetchAllCategories() {
+-        LocalDate candidate = prevWeekday(LocalDate.now().minusDays(1));
++        // [시연 임시] 시스템 시간이 2026년 미래로 설정되어 KAMIS DB(현실 시간)와 불일치.
++        // 현실 시점 어제(2025-06-04, 수요일)로 고정. 시연 끝나면 LocalDate.now().minusDays(1) 로 원복.
++        LocalDate candidate = prevWeekday(LocalDate.of(2025, 6, 4));
+ 
+         for (int attempt = 1; attempt <= 10; attempt++) {
+             log.info("[KAMIS-API] 조회 기준일: {} ({}) [{}회차]",
+diff --git a/src/main/java/com/naengjang_goat/inventory_system/inventory/service/LowStockService.java b/src/main/java/com/naengjang_goat/inventory_system/inventory/service/LowStockService.java
+index 81adb78..db61610 100644
+--- a/src/main/java/com/naengjang_goat/inventory_system/inventory/service/LowStockService.java
++++ b/src/main/java/com/naengjang_goat/inventory_system/inventory/service/LowStockService.java
+@@ -40,7 +40,9 @@ public class LowStockService {
+     private final IngredientRepository ingredientRepository;
+     private final DepletionCalculatorService depletionCalculatorService;
+ 
+-    @Transactional(readOnly = true)
++    // [시연 패치] @Transactional(readOnly = true) 제거.
++    // 사유: 내부 try/catch 가 예외를 잡지만 트랜잭션은 rollback-only 마크 → UnexpectedRollbackException.
++    // 영구 해결: DepletionCalculatorService.calculate() 에 Propagation.REQUIRES_NEW 적용 권장.
+     public List<LowStockItemDto> getTopLowStock(Long userId, int limit) {
+ 
+         // 1. 점주 재료 ID 목록
+diff --git a/src/main/resources/application.properties b/src/main/resources/application.properties
+index 1d12436..74646a8 100644
+--- a/src/main/resources/application.properties
++++ b/src/main/resources/application.properties
+@@ -1,88 +1,76 @@
+ # ----------------------------------------
+-# 1. MySQL ?????? ?? ??
++# 1. MySQL 데이터베이스 연결 설정
+ # ----------------------------------------
+-# [??] DB ?? URL
+-# (localhost:3306? inventory_db?? ??? ??????? ?????? ??)
+-# (?? DB ??? ????, 'inventory_db' ??? ??????)
++# Docker 환경에서는 DB_URL 환경변수로 재정의 가능
+ spring.datasource.url=${DB_URL:jdbc:mysql://localhost:3306/naengjang_goat_db?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true}
+-
+-# [??] DB ??? ?? (??? MySQL ???? ??)
+ spring.datasource.username=${DB_USERNAME:root}
+-
+-# [??] DB ???? (??? MySQL ????? ??)
+ spring.datasource.password=${DB_PASSWORD:43214321}
+-
+-# [??] ??? ???? ??? ??
+ spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+ 
+ # ----------------------------------------
+-# 2. JPA & Hibernate ??
++# 2. JPA & Hibernate
+ # ----------------------------------------
+-# [??] JPA? DB? ??? ? ??? ??(Dialect) ??
+ spring.jpa.database-platform=org.hibernate.dialect.MySQL8Dialect
+-
+-# [??] JPA? ???? SQL ??? ??? ???? ?? (?? ? true)
+ spring.jpa.show-sql=true
+-
+-# [?? ??] Spring? ??? ?, Entity ???? ?? DB ???? ???? ??/???? ??
+-# - create: ?? ?? ? ?? ???? ???? ?? ?? (????)
+-# - update: ?? ???? ????, ??? ??? ?? (???)
+-# - validate: Entity? ???? ????? ??? ?
+-# - none: ???? ?? ?? (???)
++# ddl-auto: Entity 변경 사항을 DB 스키마에 자동 반영 (운영 환경에선 validate 권장)
+ spring.jpa.hibernate.ddl-auto=update
+ 
+ # ----------------------------------------
+-# 3. JWT (JSON Web Token) ??
++# 3. Flyway 비활성화
+ # ----------------------------------------
+-# (?? ??: ? Secret Key? ?????. ?? ?? ??? ??? ??? ??? ???? ???? ???.)
++# V006 ALTER 대상 테이블이 JPA Entity로만 정의돼 있어 Flyway 단독 실행 시 실패.
++# JPA ddl-auto=update 가 모든 테이블/컬럼을 자동 생성하므로 Flyway 비활성화.
++spring.flyway.enabled=false
++
++# ----------------------------------------
++# 4. JWT (JSON Web Token)
++# ----------------------------------------
++# 운영 환경에서는 반드시 환경변수 또는 Secrets Manager 로 주입할 것
+ jwt.secret=${JWT_SECRET:NaengjangGoatSecretKeyNaengjangGoatSecretKey1234567890}
+-# Access Token ?? ?? (?: 1?? = 1000ms * 60s * 60min)
++# Access Token 만료: 1시간 (ms)
+ jwt.access-token-expiration-ms=3600000
+-# Refresh Token ?? ?? (?: 7? = 1000ms * 60s * 60min * 24h * 7d)
++# Refresh Token 만료: 7일 (ms)
+ jwt.refresh-token-expiration-ms=604800000
+ 
+-
+-#########################################
+-# SPRING BATCH
+-#########################################
+-# MySQL 환경에서 BATCH_JOB_INSTANCE 등 메타 테이블 자동 생성.
+-# 기본값 'embedded'는 H2 전용이므로 MySQL에서 명시 필요.
+-# 테이블이 이미 존재하면 스킵 — 중복 생성 없음.
++# ----------------------------------------
++# 5. Spring Batch
++# ----------------------------------------
++# MySQL 환경에서 BATCH_JOB_INSTANCE 등 메타 테이블 자동 생성 (default 'embedded' 는 H2 전용)
+ spring.batch.jdbc.initialize-schema=always
+ 
+-#########################################
+-# KAMIS API CONFIG (Final)
+-#########################################
++# ----------------------------------------
++# 6. KAMIS API (농산물 유통정보)
++# ----------------------------------------
+ kamis.api.base-url=https://www.kamis.or.kr/service/price/xml.do
+ kamis.api.key=${KAMIS_API_KEY:c7db4fde-1344-4f12-b708-e5f54a4c25f5}
+ kamis.api.id=6879
+ kamis.api.return-type=xml
+ kamis.api.action.daily=dailyPriceByCategoryList
+ 
+-#########################################
+-# RESILIENCE4J CIRCUIT BREAKER CONFIG
+-#########################################
+-# redisLock 인스턴스 — RedissonLockStrategy 전용
++# ----------------------------------------
++# 7. Resilience4j Circuit Breaker
++# ----------------------------------------
++# redisLock 인스턴스 - RedissonLockStrategy 적용 대상
+ resilience4j.circuitbreaker.instances.redisLock.slidingWindowSize=10
+ resilience4j.circuitbreaker.instances.redisLock.failureRateThreshold=50
+ resilience4j.circuitbreaker.instances.redisLock.waitDurationInOpenState=10s
+ resilience4j.circuitbreaker.instances.redisLock.permittedNumberOfCallsInHalfOpenState=3
+ 
+-#########################################
+-# NAVER SHOPPING SEARCH API CONFIG
+-#########################################
++# ----------------------------------------
++# 8. Naver Shopping Search API
++# ----------------------------------------
+ naver.shopping.client-id=${NAVER_CLIENT_ID:__qsCZWgRf3EP8iOLUHt}
+ naver.shopping.client-secret=${NAVER_CLIENT_SECRET:2qzrd2jYgM}
+ naver.shopping.base-url=https://openapi.naver.com/v1/search/shop.json
+ 
+-#########################################
+-# REDIS CONFIG
++# ----------------------------------------
++# 9. Redis
++# ----------------------------------------
+ # Docker 환경에서는 REDIS_ADDRESS 환경변수로 재정의 (예: redis://redis:6379)
+-#########################################
+ redis.address=redis://127.0.0.1:6379
+ 
+-#########################################
+-# FIREBASE CONFIG
++# ----------------------------------------
++# 10. Firebase (FCM 푸시)
++# ----------------------------------------
+ # 서비스 계정 JSON 파일 경로. 파일 없으면 FCM 비활성화 (앱 정상 기동).
+-#########################################
+ firebase.config.path=classpath:naengjanggoat-firebase-adminsdk-fbsvc-2eb865bacd.json

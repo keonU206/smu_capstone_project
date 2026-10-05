@@ -1,0 +1,155 @@
+diff --git a/src/main/java/com/naengjang_goat/inventory_system/global/config/SecurityConfig.java b/src/main/java/com/naengjang_goat/inventory_system/global/config/SecurityConfig.java
+index 84ea61b..7e94963 100644
+--- a/src/main/java/com/naengjang_goat/inventory_system/global/config/SecurityConfig.java
++++ b/src/main/java/com/naengjang_goat/inventory_system/global/config/SecurityConfig.java
+@@ -13,7 +13,9 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
+ import org.springframework.security.config.http.SessionCreationPolicy;
+ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+ import org.springframework.security.crypto.password.PasswordEncoder;
++import org.springframework.http.HttpStatus;
+ import org.springframework.security.web.SecurityFilterChain;
++import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+ import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+ import org.springframework.web.cors.CorsConfigurationSource;
+ 
+@@ -69,8 +71,14 @@ public class SecurityConfig {
+                 .sessionManagement(session -> session
+                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                 )
++                // 토큰 없음·만료·위조 → 401 (기본값 403 이면 프론트가 로그아웃 처리를 못 함)
++                .exceptionHandling(ex -> ex
++                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
++                )
+                 .authorizeHttpRequests(auth -> auth
+                         .requestMatchers("/api/users/signup", "/api/users/login").permitAll()
++                        // 에러 응답(400·404·409 등)이 익명 요청에서 403 으로 뭉개지지 않도록
++                        .requestMatchers("/error").permitAll()
+                         .requestMatchers("/admin/**").permitAll()
+                         // Swagger UI
+                         .requestMatchers(
+diff --git a/src/main/java/com/naengjang_goat/inventory_system/pricing/dto/LowestTopItemDto.java b/src/main/java/com/naengjang_goat/inventory_system/pricing/dto/LowestTopItemDto.java
+index 34e1218..c14afc1 100644
+--- a/src/main/java/com/naengjang_goat/inventory_system/pricing/dto/LowestTopItemDto.java
++++ b/src/main/java/com/naengjang_goat/inventory_system/pricing/dto/LowestTopItemDto.java
+@@ -13,6 +13,8 @@ import java.util.List;
+ public class LowestTopItemDto {
+     private final Long ingredientId;
+     private final String name;
++    /** 재료 기본 관리 단위 (g · ml · 개). 재고 배치 수량이 이 단위로 저장된다. */
++    private final String unit;
+     private final Long weekAvg;
+     private final Long monthAvg;
+     private final Long todayPrice;
+diff --git a/src/main/java/com/naengjang_goat/inventory_system/pricing/dto/OnlinePriceDto.java b/src/main/java/com/naengjang_goat/inventory_system/pricing/dto/OnlinePriceDto.java
+index 380ce84..418b3b4 100644
+--- a/src/main/java/com/naengjang_goat/inventory_system/pricing/dto/OnlinePriceDto.java
++++ b/src/main/java/com/naengjang_goat/inventory_system/pricing/dto/OnlinePriceDto.java
+@@ -1,5 +1,6 @@
+ package com.naengjang_goat.inventory_system.pricing.dto;
+ 
++import com.fasterxml.jackson.annotation.JsonProperty;
+ import lombok.AllArgsConstructor;
+ import lombok.Builder;
+ import lombok.Getter;
+@@ -18,9 +19,15 @@ public class OnlinePriceDto {
+     private final String imageUrl;
+     private final Integer price;
+     private final String currency;
+-    private final boolean isDiscount;
++    /**
++     * Lombok 은 boolean isXxx 필드에 isXxx() getter 를 만들고 Jackson 은 이를 "xxx" 로 직렬화한다.
++     * 프론트 계약(isDiscount / isLowest)을 지키기 위해 필드명은 discount / lowest 로 두고 JSON 이름을 고정.
++     */
++    @JsonProperty("isDiscount")
++    private final boolean discount;
+     private final Integer weightGrams;
+     private final Long unitPricePerKg;
+-    private final boolean isLowest;
++    @JsonProperty("isLowest")
++    private final boolean lowest;
+     private final LocalDateTime fetchedAt;
+ }
+diff --git a/src/main/java/com/naengjang_goat/inventory_system/pricing/service/LowestTopService.java b/src/main/java/com/naengjang_goat/inventory_system/pricing/service/LowestTopService.java
+index 1f1e7de..37cdf64 100644
+--- a/src/main/java/com/naengjang_goat/inventory_system/pricing/service/LowestTopService.java
++++ b/src/main/java/com/naengjang_goat/inventory_system/pricing/service/LowestTopService.java
+@@ -66,6 +66,7 @@ public class LowestTopService {
+         return LowestTopItemDto.builder()
+                 .ingredientId(ingredient.getId())
+                 .name(ingredient.getName())
++                .unit(ingredient.getBaseUnit())
+                 .weekAvg(kamis != null ? kamis.getWeekAvg() : null)
+                 .monthAvg(kamis != null ? kamis.getMonthAvg() : null)
+                 .todayPrice(kamis != null ? kamis.getCurrentPricePerKg() : null)
+diff --git a/src/main/java/com/naengjang_goat/inventory_system/pricing/service/OnlinePriceAggregator.java b/src/main/java/com/naengjang_goat/inventory_system/pricing/service/OnlinePriceAggregator.java
+index 4849af1..6a626e7 100644
+--- a/src/main/java/com/naengjang_goat/inventory_system/pricing/service/OnlinePriceAggregator.java
++++ b/src/main/java/com/naengjang_goat/inventory_system/pricing/service/OnlinePriceAggregator.java
+@@ -82,10 +82,10 @@ public class OnlinePriceAggregator {
+                     .imageUrl(r.getImageUrl())
+                     .price(r.getPrice())
+                     .currency(r.getCurrency())
+-                    .isDiscount(r.isDiscount())
++                    .discount(r.isDiscount())
+                     .weightGrams(r.getWeightGrams())
+                     .unitPricePerKg(r.getUnitPricePerKg())
+-                    .isLowest(r.getUnitPricePerKg() == minUnit)
++                    .lowest(r.getUnitPricePerKg() == minUnit)
+                     .fetchedAt(r.getFetchedAt())
+                     .build());
+         }
+diff --git a/src/main/java/com/naengjang_goat/inventory_system/user/service/UserService.java b/src/main/java/com/naengjang_goat/inventory_system/user/service/UserService.java
+index 1387912..07283c7 100644
+--- a/src/main/java/com/naengjang_goat/inventory_system/user/service/UserService.java
++++ b/src/main/java/com/naengjang_goat/inventory_system/user/service/UserService.java
+@@ -9,12 +9,15 @@ import com.naengjang_goat.inventory_system.user.dto.UserSignupRequestDto;
+ import com.naengjang_goat.inventory_system.user.domain.User;
+ import com.naengjang_goat.inventory_system.user.repository.UserRepository;
+ import lombok.RequiredArgsConstructor;
++import org.springframework.http.HttpStatus;
+ import org.springframework.security.authentication.AuthenticationManager;
+ import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+ import org.springframework.security.core.Authentication;
++import org.springframework.security.core.AuthenticationException;
+ import org.springframework.security.crypto.password.PasswordEncoder;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
++import org.springframework.web.server.ResponseStatusException;
+ 
+ /**
+  * User의 비즈니스 로직(회원가입, 로그인)을 처리하는 서비스 클래스
+@@ -43,7 +46,7 @@ public class UserService {
+     public User signup(UserSignupRequestDto signupDto) {
+         // 1. 아이디 중복 검사
+         if (userRepository.findByUsername(signupDto.getUsername()).isPresent()) {
+-            throw new IllegalArgumentException("이미 사용중인 아이디입니다.");
++            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 사용중인 아이디입니다.");
+         }
+ 
+         // 2. 비밀번호 암호화
+@@ -81,13 +84,18 @@ public class UserService {
+     @Transactional
+     public TokenResponseDto login(UserLoginRequestDto loginDto) {
+         // 1. Spring Security의 AuthenticationManager를 사용하여 사용자 인증 시도
+-        Authentication authentication = authenticationManager.authenticate(
+-                new UsernamePasswordAuthenticationToken(
+-                        loginDto.getUsername(),
+-                        loginDto.getPassword()
+-                )
+-        );
+-        // (인증에 실패하면 여기서 401 Unauthorized 예외가 발생함)
++        Authentication authentication;
++        try {
++            authentication = authenticationManager.authenticate(
++                    new UsernamePasswordAuthenticationToken(
++                            loginDto.getUsername(),
++                            loginDto.getPassword()
++                    )
++            );
++        } catch (AuthenticationException e) {
++            // 아이디 없음 · 비밀번호 불일치 → 401 (프론트가 "아이디 또는 비밀번호" 안내)
++            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다.");
++        }
+ 
+         // 2. 인증에 성공했다면, TokenProvider를 사용하여 JWT 토큰 생성
+         TokenResponseDto tokenResponseDto = tokenProvider.createTokens(authentication);
