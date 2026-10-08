@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { login, logout, signup } from "../api/auth";
 import { authStorage } from "../lib/auth-storage";
+import { registerFcmToken } from "../lib/notifications";
 import type { LoginPayload, SignupPayload } from "../types/user";
 
 export function useLogin() {
@@ -9,6 +10,8 @@ export function useLogin() {
     onSuccess: (tokens, variables) => {
       authStorage.setTokens(tokens);
       authStorage.setUsername(variables.username);
+      // FCM 기기 토큰 등록 (실패해도 로그인 흐름은 막지 않음)
+      registerFcmToken().catch(() => {});
     },
   });
 }
@@ -30,6 +33,8 @@ export function useSignup() {
     onSuccess: (tokens, variables) => {
       authStorage.setTokens(tokens);
       authStorage.setUsername(variables.username);
+      // FCM 기기 토큰 등록 (실패해도 로그인 흐름은 막지 않음)
+      registerFcmToken().catch(() => {});
     },
   });
 }
