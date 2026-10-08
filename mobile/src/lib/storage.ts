@@ -10,6 +10,7 @@ const KEYS = [
   "auth_refresh_token",
   "auth_username",
   "api_base_url",
+  "handled_notification_ids",
 ] as const;
 export type StorageKey = (typeof KEYS)[number];
 

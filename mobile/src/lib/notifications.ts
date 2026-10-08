@@ -1,26 +1,65 @@
-// mobile/src/lib/notifications.ts
 // FCM 기기 토큰 등록 + 알림 수신/탭 처리
-// 백엔드는 FCM으로 직접 발송하므로 Expo Push Token이 아니라 getDevicePushTokenAsync()의 FCM 토큰을 등록한다.
+// 백엔드는 Firebase Admin으로 직접 발송하므로 Expo Push Token이 아니라
+// getDevicePushTokenAsync()의 FCM 기기 토큰을 PATCH /api/users/fcm-token 으로 등록한다.
+//
+// 서버 data 계약 (원본 백엔드 docs/handoff/API_CONTRACT.md §5)
+//   {"notificationId":"77","type":"UPLOAD"|"OPENING","businessDate":"2026-10-08","route":"closing"}
+// 서버는 최소 한 번 전달이라 같은 notificationId가 여러 번 올 수 있음 → 앱에서 중복 방어.
 
 import { Platform } from "react-native";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import { updateFcmToken } from "../api/users";
+import type { PushData } from "../types/notification";
 import { authStorage } from "./auth-storage";
-
-// 앱이 켜져 있을 때(포그라운드)도 배너 표시
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+import { storage } from "./storage";
 
 const CHANNEL_ID = "default";
+const SEEN_LIMIT = 100;
 
+// ── 중복 방어: 처리한 notificationId 기록 ─────────────────────────────
+// received: 포그라운드에서 이미 배너를 띄운 ID / opened: 이미 탭해서 화면 이동한 ID
+type Seen = { received: string[]; opened: string[] };
+
+function readSeen(): Seen {
+  try {
+    const raw = storage.get("handled_notification_ids");
+    const v = raw ? (JSON.parse(raw) as Partial<Seen>) : {};
+    return { received: v.received ?? [], opened: v.opened ?? [] };
+  } catch {
+    return { received: [], opened: [] };
+  }
+}
+
+/** 처음 보는 ID면 기록하고 true, 이미 처리했으면 false */
+function markOnce(kind: keyof Seen, id: string | undefined): boolean {
+  if (!id) return true; // ID 없는 알림(콘솔 테스트 메시지 등)은 항상 처리
+  const seen = readSeen();
+  if (seen[kind].includes(id)) return false;
+  seen[kind] = [...seen[kind], id].slice(-SEEN_LIMIT);
+  storage.set("handled_notification_ids", JSON.stringify(seen));
+  return true;
+}
+
+function pushData(n: Notifications.Notification): PushData {
+  return (n.request.content.data ?? {}) as PushData;
+}
+
+// 앱이 켜져 있을 때(포그라운드) 표시 여부 — 같은 notificationId 재수신이면 숨김
+Notifications.setNotificationHandler({
+  handleNotification: async (n) => {
+    const show = markOnce("received", pushData(n).notificationId);
+    return {
+      shouldShowBanner: show,
+      shouldShowList: show,
+      shouldPlaySound: show,
+      shouldSetBadge: false,
+    };
+  },
+});
+
+// ── 토큰 등록 ─────────────────────────────────────────────────────────
 async function ensureAndroidChannel() {
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
@@ -56,14 +95,19 @@ export async function registerFcmToken(): Promise<string | null> {
   return fcmToken;
 }
 
-/** 알림 data → 이동할 화면 (백엔드에 data 추가되면 자동으로 상세 이동) */
-function routeFromNotification(data: Record<string, unknown> | undefined) {
-  const ingredientId = data?.ingredientId;
-  if (ingredientId) {
-    router.push(`/lowest-price/${ingredientId}`);
+// ── 탭 → 화면 이동 ────────────────────────────────────────────────────
+function openFromNotification(data: PushData) {
+  if (!markOnce("opened", data.notificationId)) return; // 같은 알림 두 번 이동 방지
+  if (!authStorage.isAuthenticated()) {
+    router.push("/login");
     return;
   }
-  // 현재 백엔드 알림은 매수 신호뿐이고 data가 없으므로 발주 탭으로
+  if (data.notificationId && (data.route === "closing" || data.type)) {
+    // 알림 상세(발송 당시 판단 스냅샷) → 지금 기준 판단은 상세에서 발주 화면으로
+    router.push(`/notification/${data.notificationId}`);
+    return;
+  }
+  // notificationId 없는 알림(콘솔 테스트 등)은 발주 탭으로
   router.push("/order");
 }
 
@@ -76,12 +120,12 @@ export function setupNotificationListeners(): () => void {
 
   // 알림 탭 (앱이 켜져 있거나 백그라운드일 때)
   const responseSub = Notifications.addNotificationResponseReceivedListener((res) => {
-    routeFromNotification(res.notification.request.content.data);
+    openFromNotification(pushData(res.notification));
   });
 
   // 앱이 종료된 상태에서 알림 탭으로 실행된 경우
   Notifications.getLastNotificationResponseAsync().then((res) => {
-    if (res) routeFromNotification(res.notification.request.content.data);
+    if (res) openFromNotification(pushData(res.notification));
   });
 
   return () => {
