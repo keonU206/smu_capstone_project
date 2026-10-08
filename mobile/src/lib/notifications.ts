@@ -49,6 +49,7 @@ function pushData(n: Notifications.Notification): PushData {
 // 앱이 켜져 있을 때(포그라운드) 표시 여부 — 같은 notificationId 재수신이면 숨김
 Notifications.setNotificationHandler({
   handleNotification: async (n) => {
+    console.log("[FCM] received", n.request.content.title, JSON.stringify(n.request.content.data ?? {}));
     const show = markOnce("received", pushData(n).notificationId);
     return {
       shouldShowBanner: show,
