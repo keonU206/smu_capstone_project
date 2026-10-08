@@ -1,5 +1,7 @@
 # 냉장 G.O.A.T — Android 앱 (React Native / Expo)
 
+> 🔔 푸시 알림(FCM) 실행·테스트 방법은 [`PUSH_TESTING.md`](PUSH_TESTING.md)
+
 `frontend/`(웹)와 같은 백엔드 API를 쓰는 모바일 앱입니다.
 화면 8개(로그인·회원가입, 온보딩, 매장 설정, 메인, 최저가 목록/상세, 재고, 발주, 설정)를 네이티브로 구현했습니다.
 

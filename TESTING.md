@@ -234,12 +234,14 @@ npm run dev                                                  # http://localhost:
 
 ## 6. 모바일 앱 (`mobile/`)
 
-### 6.1 폰에서 바로 확인 (Expo Go, 빌드 불필요)
+> 🔔 **푸시 알림(FCM) 테스트는 [`mobile/PUSH_TESTING.md`](mobile/PUSH_TESTING.md)** — 개발 빌드 설치, 서버 주소(`.env`), 토큰 등록, Firebase 콘솔 수신 테스트, 문제 해결.
+
+### 6.1 폰에서 바로 확인 (Expo Go, 빌드 불필요 · 푸시 제외)
 
 ```bash
 cd mobile
 npm install
-npx expo start          # 터미널에 QR 코드 → 폰의 Expo Go 앱으로 스캔
+npx expo start --go     # 터미널에 QR 코드 → 폰의 Expo Go 앱으로 스캔 (expo-dev-client 설치 후에는 --go 필요)
 ```
 
 1. **PC IP 확인**: Windows `ipconfig` → IPv4 주소 (예: `192.168.0.12`) · macOS `ipconfig getifaddr en0`
@@ -255,7 +257,7 @@ npx eas-cli@latest login                                  # Expo 무료 계정
 npx eas-cli@latest build -p android --profile preview     # 10~20분 → .apk 링크
 ```
 
-기본 서버 주소는 `mobile/eas.json`의 `EXPO_PUBLIC_API_BASE_URL`(현재 `http://192.168.0.10:8080`). 앱 안 설정 탭에서도 바꿀 수 있다.
+기본 서버 주소는 `mobile/eas.json`의 `EXPO_PUBLIC_API_BASE_URL`(빌드한 사람의 PC IP로 설정돼 있음). 빌드에만 쓰이는 값이라 각자 PC에서는 `mobile/.env`를 만들거나 앱 로그인 화면 오른쪽 위 서버 주소에서 바꾼다. 푸시가 필요하면 `--profile development`(개발 빌드) — 자세한 내용은 `mobile/PUSH_TESTING.md`.
 
 ### 6.3 모바일 주의사항
 
